@@ -169,6 +169,11 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
     shippingByOrderName[ref] = (shippingByOrderName[ref] || 0) + amount;
   }
 
+  console.log("DEBUG aantal shipments opgehaald:", allShipments.length);
+console.log("DEBUG voorbeeld shipment (ruw):", JSON.stringify(allShipments[0], null, 2));
+console.log("DEBUG voorbeeld order-namen:", currentOrders.slice(0, 3).map((o: any) => o.name));
+console.log("DEBUG opgebouwde shippingByOrderName (eerste 5 keys):", Object.keys(shippingByOrderName).slice(0, 5));
+
   const packaging = Number(process.env.COST_PACKAGING_PER_ORDER || 0);
   const fulfillment = Number(process.env.COST_FULFILLMENT_PER_ORDER || 0);
   const marketingTotal = Number(process.env.COST_MARKETING_TOTAL || 0);
