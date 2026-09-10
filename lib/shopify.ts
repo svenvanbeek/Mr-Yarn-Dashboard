@@ -33,7 +33,6 @@ async function getAccessToken(): Promise<string> {
   }
 
   const json = await res.json();
-  // Token is 24 uur geldig; we vernieuwen 'm iets eerder om veilig te zitten.
   cachedToken = { token: json.access_token, expiresAt: Date.now() + 23 * 60 * 60 * 1000 };
   return cachedToken.token;
 }
@@ -74,17 +73,13 @@ async function shopifyGetAll(path: string, rootKey: string): Promise<any[]> {
   return results;
 }
 
-export async function getOrders(daysBack: number): Promise<any[]> {
-  const since = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+export async function getOrders(since: Date): Promise<any[]> {
   return shopifyGetAll(
-    `orders.json?status=any&limit=250&created_at_min=${encodeURIComponent(since)}`,
+    `orders.json?status=any&limit=250&created_at_min=${encodeURIComponent(since.toISOString())}`,
     "orders"
   );
 }
 
-/**
- * Bouwt variant_id → kostprijs op basis van gekoppelde inventory items.
- */
 export async function getCostPriceMap(): Promise<Record<number, number>> {
   const products = await shopifyGetAll("products.json?limit=250&fields=id,variants", "products");
 
@@ -98,7 +93,7 @@ export async function getCostPriceMap(): Promise<Record<number, number>> {
   }
 
   const costPerInventoryItem: Record<number, number> = {};
-  const BATCH_SIZE = 50; // zelfde limiet als in het Sheets-script, voorkomt te lange URL's
+  const BATCH_SIZE = 50;
   for (let i = 0; i < inventoryItemIds.length; i += BATCH_SIZE) {
     const batch = inventoryItemIds.slice(i, i + BATCH_SIZE);
     const items = await shopifyGetAll(`inventory_items.json?ids=${batch.join(",")}`, "inventory_items");
@@ -114,15 +109,10 @@ export async function getCostPriceMap(): Promise<Record<number, number>> {
   return costPerVariant;
 }
 
-/**
- * Shopify Payments-transactiekosten. Geeft een lege lijst terug (i.p.v. een
- * fout) als de winkel geen Shopify Payments gebruikt of de scope nog niet is
- * goedgekeurd, zodat de rest van het dashboard gewoon blijft werken.
- */
-export async function getBalanceTransactions(daysBack: number): Promise<any[]> {
+export async function getBalanceTransactions(since: Date): Promise<any[]> {
   try {
     const all = await shopifyGetAll("shopify_payments/balance/transactions.json", "transactions");
-    const sinceMs = Date.now() - daysBack * 86_400_000;
+    const sinceMs = since.getTime();
     return all.filter((t: any) => !t.processed_at || new Date(t.processed_at).getTime() >= sinceMs);
   } catch (err) {
     console.error("Shopify Payments-transacties niet beschikbaar:", err);
@@ -130,12 +120,21 @@ export async function getBalanceTransactions(daysBack: number): Promise<any[]> {
   }
 }
 
+export function lineItemRevenueExclTax(order: any, item: any): number {
+  const gross = (parseFloat(item.price) || 0) * item.quantity;
+  if (!order.taxes_included) return gross;
+  const taxAmount = (item.tax_lines || []).reduce(
+    (sum: number, t: any) => sum + (parseFloat(t.price) || 0),
+    0
+  );
+  return gross - taxAmount;
+}
+
 const EXCLUDED_NAMES = (process.env.EXCLUDED_CUSTOMER_NAMES || "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
-/** Sluit eigen testbestellingen uit, net als in het Sheets-script. */
 export function isExcludedCustomer(order: any): boolean {
   if (!order.customer) return false;
   const name = `${order.customer.first_name ?? ""} ${order.customer.last_name ?? ""}`.trim().toLowerCase();
