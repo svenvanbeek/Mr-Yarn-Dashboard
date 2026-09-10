@@ -4,19 +4,14 @@
 const MYPARCEL_API_KEY = process.env.MYPARCEL_API_KEY!;
 const REVALIDATE_SECONDS = 3600;
 
-/**
- * Geeft een lege lijst terug bij een fout (bijv. ontbrekende/foute key), zodat
- * het dashboard blijft werken zonder verzendkosten in plaats van te crashen.
- */
-export async function getShipments(daysBack: number): Promise<any[]> {
+export async function getShipments(since: Date): Promise<any[]> {
   if (!MYPARCEL_API_KEY) return [];
 
-  const from = new Date(Date.now() - daysBack * 86_400_000).toISOString();
   const auth = Buffer.from(MYPARCEL_API_KEY).toString("base64");
 
   try {
     const res = await fetch(
-      `https://api.myparcel.nl/shipments?size=200&from=${encodeURIComponent(from)}`,
+      `https://api.myparcel.nl/shipments?size=200&from=${encodeURIComponent(since.toISOString())}`,
       {
         headers: {
           Authorization: `basic ${auth}`,
