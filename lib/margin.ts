@@ -155,6 +155,12 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
     isWithin(o.created_at, period.previousStart, period.previousEnd)
   );
 
+  console.log("DEBUG periode:", period.key, "start:", period.currentStart.toISOString(), "eind:", period.currentEnd.toISOString());
+  console.log("DEBUG totaal opgehaald (vanaf vergelijkingsstart):", allOrders.length);
+  console.log("DEBUG na uitsluiten testklanten:", included.length);
+  console.log("DEBUG orders binnen huidige periode:", currentOrders.length);
+  console.log("DEBUG oudste/nieuwste opgehaalde order:", allOrders[0]?.created_at, allOrders[allOrders.length - 1]?.created_at);
+
   const feesByOrderId: Record<number, number> = {};
   for (const t of allTransactions) {
     if (!t.source_order_id) continue;
