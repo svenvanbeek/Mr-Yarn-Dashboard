@@ -165,12 +165,18 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
   // niet je Shopify-ordernummer. Het Shopify-ordernummer staat verstopt in
   // options.label_description (bijv. "#24001498"), en dat is het veld waarop
   // we moeten matchen met order.name.
+  // MyParcel's price.amount is INCLUSIEF btw (wat je daadwerkelijk betaalt/
+  // gefactureerd krijgt). Omzet wordt elders al exclusief btw meegenomen
+  // (lineItemRevenueExclTax), dus voor een eerlijke marge trekken we hier
+  // ook de btw eraf. Percentage is instelbaar via SHIPPING_VAT_RATE.
+  const SHIPPING_VAT_RATE = Number(process.env.SHIPPING_VAT_RATE || 0.21);
   const shippingByOrderName: Record<string, number> = {};
   for (const s of allShipments) {
     const ref = normalizeOrderName(s.options?.label_description);
     if (!ref) continue;
-    const amount = s.price ? s.price.amount / 100 : 0;
-    shippingByOrderName[ref] = (shippingByOrderName[ref] || 0) + amount;
+    const amountInclBtw = s.price ? s.price.amount / 100 : 0;
+    const amountExclBtw = amountInclBtw / (1 + SHIPPING_VAT_RATE);
+    shippingByOrderName[ref] = (shippingByOrderName[ref] || 0) + amountExclBtw;
   }
 
   const packaging = Number(process.env.COST_PACKAGING_PER_ORDER || 0);
