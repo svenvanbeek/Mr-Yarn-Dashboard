@@ -1,68 +1,52 @@
-import Link from "next/link";
-import { computeDashboardData } from "@/lib/margin";
-import { PERIOD_OPTIONS, type PeriodKey } from "@/lib/periods";
-import KpiCards from "@/components/KpiCards";
-import MarginTable from "@/components/MarginTable";
-import LogoutButton from "@/components/LogoutButton";
-import RevenueChart from "@/components/RevenueChart";
-import CostBreakdownChart from "@/components/CostBreakdownChart";
+"use client";
 
-// Deze waarde bepaalt hoe lang Next.js de opgehaalde API-data hergebruikt
-// voordat hij bij een volgend bezoek opnieuw ophaalt. 3600 = 1 uur.
-export const revalidate = 3600;
+import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 
-const VALID_KEYS = PERIOD_OPTIONS.map((o) => o.key);
+export default function LoginPage() {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-function isValidPeriod(value: string | undefined): value is PeriodKey {
-  return !!value && (VALID_KEYS as string[]).includes(value);
-}
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-function formatRange(start: Date, end: Date): string {
-  const fmt = new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short" });
-  return `${fmt.format(start)} – ${fmt.format(end)}`;
-}
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: { period?: string };
-}) {
-  const defaultPeriod = (process.env.DEFAULT_PERIOD || "mtd") as PeriodKey;
-  const periodKey: PeriodKey = isValidPeriod(searchParams.period) ? searchParams.period : defaultPeriod;
+    setLoading(false);
 
-  const data = await computeDashboardData(periodKey);
-  const periodeLabel = formatRange(data.period.currentStart, data.period.currentEnd);
+    if (res.ok) {
+      router.push("/");
+      router.refresh();
+    } else {
+      setError("Onjuist wachtwoord.");
+    }
+  }
 
   return (
-    <main className="dashboard">
-      <div className="dashboard-header">
-        <div>
-          <div className="dashboard-eyebrow">Contributiemarge-dashboard — live data, ververst elk uur</div>
-          <h1 className="dashboard-title">Bedrijfsoverzicht — {periodeLabel}</h1>
-        </div>
-        <LogoutButton />
-      </div>
-
-      <div className="period-row">
-        {PERIOD_OPTIONS.map((opt) => (
-          <Link
-            key={opt.key}
-            href={`/?period=${opt.key}`}
-            className={`period-btn ${opt.key === periodKey ? "active" : ""}`}
-          >
-            {opt.label}
-          </Link>
-        ))}
-      </div>
-
-      <KpiCards totals={data.totals} previousTotals={data.previousTotals} />
-
-      <div className="chart-grid">
-        <RevenueChart data={data.daily} subtitle={periodeLabel} />
-        <CostBreakdownChart data={data.costBreakdown} subtitle={periodeLabel} />
-      </div>
-
-      <MarginTable orders={data.orders} />
+    <main className="login-page">
+      <form onSubmit={handleSubmit} className="login-card">
+        <h1>Mr Yarn</h1>
+        <p>Contributiemarge-dashboard</p>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Wachtwoord"
+          autoFocus
+        />
+        {error && <p className="login-error">{error}</p>}
+        <button type="submit" disabled={loading}>
+          {loading ? "Bezig..." : "Inloggen"}
+        </button>
+      </form>
     </main>
   );
 }
