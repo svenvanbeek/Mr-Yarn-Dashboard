@@ -161,18 +161,17 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
     feesByOrderId[t.source_order_id] = (feesByOrderId[t.source_order_id] || 0) + Math.abs(parseFloat(t.fee) || 0);
   }
 
+  // Let op: MyParcel's eigen "reference_identifier" is een intern MyParcel-ID,
+  // niet je Shopify-ordernummer. Het Shopify-ordernummer staat verstopt in
+  // options.label_description (bijv. "#24001498"), en dat is het veld waarop
+  // we moeten matchen met order.name.
   const shippingByOrderName: Record<string, number> = {};
   for (const s of allShipments) {
-    const ref = normalizeOrderName(s.reference_identifier);
+    const ref = normalizeOrderName(s.options?.label_description);
     if (!ref) continue;
     const amount = s.price ? s.price.amount / 100 : 0;
     shippingByOrderName[ref] = (shippingByOrderName[ref] || 0) + amount;
   }
-
-  console.log("DEBUG aantal shipments opgehaald:", allShipments.length);
-console.log("DEBUG voorbeeld shipment (ruw):", JSON.stringify(allShipments[0], null, 2));
-console.log("DEBUG voorbeeld order-namen:", currentOrders.slice(0, 3).map((o: any) => o.name));
-console.log("DEBUG opgebouwde shippingByOrderName (eerste 5 keys):", Object.keys(shippingByOrderName).slice(0, 5));
 
   const packaging = Number(process.env.COST_PACKAGING_PER_ORDER || 0);
   const fulfillment = Number(process.env.COST_FULFILLMENT_PER_ORDER || 0);
