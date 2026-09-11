@@ -145,6 +145,31 @@ export function lineItemRevenueExclTax(order: any, item: any): number {
   return gross - taxAmount;
 }
 
+/**
+ * Geeft de door de klant betaalde verzendkosten van een order EXCLUSIEF btw.
+ * Dit hoort bij de omzet, net als de productregels — anders tel je bij
+ * betaalde verzending wel de kosten (aan de vervoerder) maar niet de
+ * bijbehorende inkomsten mee, wat de marge onterecht drukt. Bij orders met
+ * gratis verzending (boven de drempel) is er geen shipping_line met prijs,
+ * dus is dit gewoon terecht €0.
+ */
+export function shippingRevenueExclTax(order: any): number {
+  let total = 0;
+  for (const line of order.shipping_lines || []) {
+    const gross = parseFloat(line.price) || 0;
+    if (!order.taxes_included) {
+      total += gross;
+      continue;
+    }
+    const taxAmount = (line.tax_lines || []).reduce(
+      (sum: number, t: any) => sum + (parseFloat(t.price) || 0),
+      0
+    );
+    total += gross - taxAmount;
+  }
+  return total;
+}
+
 const EXCLUDED_NAMES = (process.env.EXCLUDED_CUSTOMER_NAMES || "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
