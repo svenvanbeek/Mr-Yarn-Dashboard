@@ -25,6 +25,10 @@ function formatDateShort(iso: string): string {
   return new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short" }).format(new Date(iso));
 }
 
+function formatAxisEuro(value: number): string {
+  return value >= 1000 ? `€${Math.round(value / 1000)}k` : `€${Math.round(value)}`;
+}
+
 export default function RevenueChart({ data, subtitle }: { data: DailyPoint[]; subtitle: string }) {
   const chartData = data.map((d) => ({ ...d, label: formatDateShort(d.date) }));
 
@@ -51,7 +55,7 @@ export default function RevenueChart({ data, subtitle }: { data: DailyPoint[]; s
               tick={{ fontSize: 11, fill: "#8A8676" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => `€${Math.round(v / 1000)}k`}
+              tickFormatter={formatAxisEuro}
             />
             <Tooltip formatter={(v: number) => formatEuro(v)} contentStyle={{ borderRadius: 2, border: `1px solid ${LINE_COLOR}`, fontSize: 12.5 }} />
             <Area type="monotone" dataKey="revenue" name="Omzet" stroke={TEAL} strokeWidth={2.5} fill="url(#omzetGrad)" />
