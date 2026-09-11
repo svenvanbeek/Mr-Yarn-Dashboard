@@ -4,6 +4,7 @@ import {
   getBalanceTransactions,
   isExcludedCustomer,
   lineItemRevenueExclTax,
+  shippingRevenueExclTax,
 } from "./shopify";
 import { getShipments } from "./myparcel";
 import { getPeriodRange, type PeriodKey, type PeriodRange } from "./periods";
@@ -99,6 +100,9 @@ function buildOrderMargins(
       if (!unitCost) missingCostPrice = true;
       cogs += (unitCost || 0) * item.quantity;
     }
+    // Verzendkosten die de klant betaalt horen bij de omzet. Bij orders met
+    // gratis verzending (boven de drempel) is dit gewoon €0 — dat klopt dan.
+    revenue += shippingRevenueExclTax(order);
 
     const shippingCost = shippingByOrderName[normalizeOrderName(order.name)] || 0;
     const transactionFees = feesByOrderId[order.id] || 0;
@@ -154,12 +158,6 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
   const previousOrders = included.filter((o: any) =>
     isWithin(o.created_at, period.previousStart, period.previousEnd)
   );
-
-  console.log("DEBUG periode:", period.key, "start:", period.currentStart.toISOString(), "eind:", period.currentEnd.toISOString());
-  console.log("DEBUG totaal opgehaald (vanaf vergelijkingsstart):", allOrders.length);
-  console.log("DEBUG na uitsluiten testklanten:", included.length);
-  console.log("DEBUG orders binnen huidige periode:", currentOrders.length);
-  console.log("DEBUG oudste/nieuwste opgehaalde order:", allOrders[0]?.created_at, allOrders[allOrders.length - 1]?.created_at);
 
   const feesByOrderId: Record<number, number> = {};
   for (const t of allTransactions) {
