@@ -35,7 +35,6 @@ export default function MarginTable({ orders }: { orders: OrderMargin[] }) {
             <th>Transactie&shy;kosten</th>
             <th>Verzend&shy;kosten</th>
             <th>Verpakking</th>
-            <th>Fulfilment</th>
             <th>Marketing</th>
             <th>Overig</th>
             <th>Marge €</th>
@@ -57,7 +56,6 @@ export default function MarginTable({ orders }: { orders: OrderMargin[] }) {
                 <td>{formatEuro(order.transactionFees)}</td>
                 <td>{formatEuro(order.shippingCost)}</td>
                 <td>{formatEuro(order.packaging)}</td>
-                <td>{formatEuro(order.fulfillment)}</td>
                 <td>{formatEuro(order.marketing)}</td>
                 <td>{formatEuro(order.other)}</td>
                 <td>{formatEuro(order.margin)}</td>
