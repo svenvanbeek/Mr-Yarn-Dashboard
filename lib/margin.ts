@@ -7,6 +7,7 @@ import {
   shippingRevenueExclTax,
 } from "./shopify";
 import { getShipments } from "./myparcel";
+import { getOrderOverrides, type OrderOverride } from "./overrides";
 import { getPeriodRange, type PeriodKey, type PeriodRange } from "./periods";
 
 export interface OrderMargin {
@@ -88,23 +89,37 @@ function buildOrderMargins(
   packaging: number,
   fulfillment: number,
   marketingPerOrder: number,
-  other: number
+  other: number,
+  overrides: Record<string, OrderOverride>
 ): OrderMargin[] {
   return orders.map((order: any) => {
     let revenue = 0;
     let cogs = 0;
     let missingCostPrice = false;
+    const override = overrides[normalizeOrderName(order.name)];
+
     for (const item of order.line_items || []) {
       revenue += lineItemRevenueExclTax(order, item);
       const unitCost = costMap[item.variant_id];
-      if (!unitCost) missingCostPrice = true;
+      if (!unitCost && override?.cogs === undefined) missingCostPrice = true;
       cogs += (unitCost || 0) * item.quantity;
+    }
+
+    // Een handmatige override vervangt de opgetelde kostprijs volledig —
+    // handig bij custom orders die geen (juiste) variant-kostprijs hebben.
+    if (override?.cogs !== undefined) {
+      cogs = override.cogs;
+      missingCostPrice = false;
     }
     // Verzendkosten die de klant betaalt horen bij de omzet. Bij orders met
     // gratis verzending (boven de drempel) is dit gewoon €0 — dat klopt dan.
     revenue += shippingRevenueExclTax(order);
 
-    const shippingCost = shippingByOrderName[normalizeOrderName(order.name)] || 0;
+    // Verzendkosten: handmatige override (uit het correcties-sheet) heeft
+    // voorrang boven de automatisch opgehaalde MyParcel-kosten.
+    const shippingCost = override?.shippingCost !== undefined
+      ? override.shippingCost
+      : shippingByOrderName[normalizeOrderName(order.name)] || 0;
     const transactionFees = feesByOrderId[order.id] || 0;
     const totalCosts =
       cogs + transactionFees + shippingCost + packaging + fulfillment + marketingPerOrder + other;
@@ -188,10 +203,13 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
   const marketingTotal = Number(process.env.COST_MARKETING_TOTAL || 0);
   const other = Number(process.env.COST_OTHER_PER_ORDER || 0);
   const marketingPerOrder = currentOrders.length > 0 ? marketingTotal / currentOrders.length : 0;
+  const overrides = await getOrderOverrides();
+  console.log("DEBUG overrides opgehaald:", JSON.stringify(overrides));
+  console.log("DEBUG order-namen in huidige periode (eerste 5):", currentOrders.slice(0, 5).map((o: any) => o.name));
 
   const orderMargins = buildOrderMargins(
     currentOrders, costMap, feesByOrderId, shippingByOrderName,
-    packaging, fulfillment, marketingPerOrder, other
+    packaging, fulfillment, marketingPerOrder, other, overrides
   );
   // Nieuwste order bovenaan.
   orderMargins.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -199,7 +217,7 @@ export async function computeDashboardData(periodKey: PeriodKey): Promise<Dashbo
   const previousMarketingPerOrder = previousOrders.length > 0 ? marketingTotal / previousOrders.length : 0;
   const previousOrderMargins = buildOrderMargins(
     previousOrders, costMap, feesByOrderId, shippingByOrderName,
-    packaging, fulfillment, previousMarketingPerOrder, other
+    packaging, fulfillment, previousMarketingPerOrder, other, overrides
   );
 
   const totals = orderMargins.length > 0 ? totalsFromOrders(orderMargins) : emptyTotals();
