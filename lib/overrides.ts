@@ -2,6 +2,7 @@
 // Vercel KV. Bewerkbaar via het instellingenscherm op /instellingen.
 
 import { kv } from "@vercel/kv";
+import { unstable_noStore as noStore } from "next/cache";
 
 const KV_KEY = "order-overrides";
 
@@ -20,6 +21,9 @@ function normalizeOrderNumber(value: string | undefined | null): string {
  * terug zodat het dashboard blijft werken zonder overrides.
  */
 export async function getOrderOverrides(): Promise<Record<string, OrderOverride>> {
+  // Voorkomt dat Next.js deze lees-aanroep cachet zoals een gewone fetch —
+  // correcties moeten altijd meteen zichtbaar zijn, niet pas na een uur.
+  noStore();
   try {
     const all = await kv.hgetall<Record<string, OrderOverride>>(KV_KEY);
     return all || {};
