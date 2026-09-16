@@ -40,7 +40,12 @@ export default async function DashboardPage({
           <div className="dashboard-eyebrow">Contributiemarge-dashboard — live data, ververst elk uur</div>
           <h1 className="dashboard-title">Bedrijfsoverzicht — {periodeLabel}</h1>
         </div>
-        <LogoutButton />
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <Link href="/instellingen" className="period-btn">
+            Correcties
+          </Link>
+          <LogoutButton />
+        </div>
       </div>
 
       <div className="period-row">
